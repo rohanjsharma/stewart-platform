@@ -1,0 +1,55 @@
+{
+  "camera": {
+    "index": 1,
+    "width": 640,
+    "height": 480,
+    "fps": 60
+  },
+
+  "vision": {
+    "ball_hsv_lower": [10, 120, 120],
+    "ball_hsv_upper": [25, 255, 255],
+    "erode_iter": 2,
+    "dilate_iter": 2,
+    "morph_kernel": 5,
+    "min_radius_px": 8,
+    "max_radius_px": 80,
+    "min_area_frac": 0.0003,
+    "deglare": false
+  },
+
+  "plate": {
+    "radius_m": 0.15,
+    "servo_azimuth_deg": [0, 120, 240]
+  },
+
+  "mapping": {
+    "ellipse_refresh_interval": 5,
+    "edge_canny": { "low": 60, "high": 160 },
+
+    "rim_color": "green",
+    "green_hsv_lower": [35, 60, 60],
+    "green_hsv_upper": [85, 255, 255],
+
+    "min_rim_area_frac": 0.05
+  },
+
+  "control": {
+    "loop_hz": 60,
+    "tilt_deg_limit": 6,
+
+    "pid_x": { "kp": 6.0, "ki": 0.0, "kd": 0.8, "d_lp_hz": 20.0, "i_clamp": 0.2 },
+    "pid_y": { "kp": 6.0, "ki": 0.0, "kd": 0.8, "d_lp_hz": 20.0, "i_clamp": 0.2 }
+  },
+
+  "ik": {
+    "crank_length_m": [0.08172, 0.08172, 0.08172],
+    "link_length_m": [0.06189, 0.06189, 0.06189]
+  },
+
+  "servo": {
+    "port": "COM6",
+    "baud": 9600,
+    "theta0_deg": [15.0, 15.0, 15.0]
+  }
+}
