@@ -29,11 +29,11 @@ class ServoBus:
         """Send angle command to servo motor (clipped for safety)."""
         if self.servo:
             servo_angle1 = self.neutral_angle + angle1
-            servo_angle1 = int(np.clip(servo_angle1, 0, 30))
-            servo_angle2 = self.neutral_angle + angle2
-            servo_angle2 = int(np.clip(servo_angle2, 0, 30))
-            servo_angle3 = self.neutral_angle + angle3
-            servo_angle3 = int(np.clip(servo_angle3, 0, 30))
+            servo_angle1 = int(np.clip(servo_angle1, 0, 50))
+            servo_angle2 = self.neutral_angle + angle2 + 10
+            servo_angle2 = int(np.clip(servo_angle2, 0, 50))
+            servo_angle3 = self.neutral_angle + angle3 -4
+            servo_angle3 = int(np.clip(servo_angle3, 0, 50))
             try:
                 self.servo.write(bytes([servo_angle1, servo_angle2, servo_angle3]))
             except Exception:
@@ -44,9 +44,6 @@ if __name__ == "__main__":
 
     bus.connect_servo()
 
-    for i in range(100):
-        angle1 = randint(0, 30)
-        angle2 = randint(0, 30)
-        angle3 = randint(0, 30)
-        bus.send_servo_angle(angle1, angle2, angle3)  # Example: send 10 degrees offset from neutral
-        time.sleep(0.3)
+    
+    bus.send_servo_angle(0, 10, -4)  # Example: send 10 degrees offset from neutral
+        

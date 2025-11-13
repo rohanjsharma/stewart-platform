@@ -6,7 +6,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 // ---- CONFIG ----
 const uint8_t SERVO_CH[3] = {0, 1, 2};   // channels 0..2
 const float   MIN_ANGLE   = 0.0;
-const float   MAX_ANGLE   = 30.0;
+const float   MAX_ANGLE   = 50.0;
 
 // Per-servo pulse limits (tune to your servos/mechanics)
 const int SERVO_US_MIN[3] = {500, 500, 500};
@@ -34,7 +34,9 @@ void setup() {
   delay(10);
 
   // Park all three servos at neutral
-  for (uint8_t i = 0; i < 3; ++i) writeAngleToServo(i, BOOT_NEUTRAL_DEG);
+  writeAngleToServo(0, 15);
+  writeAngleToServo(1, 25);
+  writeAngleToServo(2, 11);
 }
 
 // Map angle (deg) -> microseconds for servo idx
