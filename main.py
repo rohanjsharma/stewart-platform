@@ -27,9 +27,31 @@ def show_frame_with_overlay(frame, rim_fit, det_result, mapper, ball_x=None, bal
         # Draw center point
         cv2.circle(vis_frame, (u0, v0), 4, (0, 255, 0), -1)
         
-        # Status text
-        cv2.putText(vis_frame, "Rim OK", (20, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        # Draw coordinate axes from fixed reference center (screen-aligned)
+        ref_center = mapper.get_reference_center()
+        if ref_center is not None:
+            ref_u0, ref_v0 = map(int, ref_center)
+            # Draw reference center point (different color to distinguish)
+            cv2.circle(vis_frame, (ref_u0, ref_v0), 6, (255, 255, 0), 2)  # Yellow circle
+            
+            # Draw positive X axis (red) - 5cm in positive x direction (straight right)
+            x_axis_end = mapper.m_to_px((0.05, 0.0))
+            cv2.line(vis_frame, (ref_u0, ref_v0), x_axis_end, (0, 0, 255), 3)  # Red for X axis
+            cv2.putText(vis_frame, "+X", (x_axis_end[0] + 5, x_axis_end[1]), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            
+            # Draw positive Y axis (green) - 5cm in positive y direction (straight up)
+            y_axis_end = mapper.m_to_px((0.0, 0.05))
+            cv2.line(vis_frame, (ref_u0, ref_v0), y_axis_end, (0, 255, 0), 3)  # Green for Y axis
+            cv2.putText(vis_frame, "+Y", (y_axis_end[0] + 5, y_axis_end[1]), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            # Status text
+            cv2.putText(vis_frame, f"Rim OK (screen-aligned coords locked)", 
+                       (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        else:
+            cv2.putText(vis_frame, f"Rim OK (calibrating...)", (20, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
     else:
         cv2.putText(vis_frame, "Rim not detected", (20, 30),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
@@ -137,23 +159,26 @@ while True:
         phi_y = pid.update_y(ball_y, 0.033)  # Returns degrees
         print("phi_x", phi_x, "phi_y", phi_y)
 
-        phi_x = phi_x * np.pi / 180  # Roll angle (rotation around X-axis) in radians
+        phi_x = -phi_x * np.pi / 180  # Roll angle (rotation around X-axis) in radians
         phi_y = phi_y * np.pi / 180  # Pitch angle (rotation around Y-axis) in radians
         
+        alpha = np.arctan2(phi_y, phi_x)
+        phi = np.pi/2 - np.hypot(phi_y, phi_x)
         # E. CONVERT ROLL/PITCH TO NORMAL VECTOR
         # Roll (phi_x) rotates around X-axis, Pitch (phi_y) rotates around Y-axis
         # Normal vector after rotation: nrm = R_x(roll) * R_y(pitch) * [0, 0, 1]^T
-        #n_x = sin(phi_y)
-        #n_y = -cos(phi_y) * sin(phi_x)
-        #n_z = cos(phi_y) * cos(phi_x)
+        #n_x = np.sin(phi_y)
+        #n_y = -np.cos(phi_y) * np.sin(phi_x)
+        #n_z = np.cos(phi_y) * np.cos(phi_x)
         #nrm = np.array([n_x, n_y, n_z])
         # Normalize to ensure unit vector
         #nrm = nrm / np.linalg.norm(nrm)
-        nrm = np.array([phi_x, phi_y, 1])
-        S = np.array([0, 0, 1])
+        nrm = np.array([np.cos(phi)*np.cos(alpha ), np.cos(phi)*np.sin(alpha ), np.sin(phi)])
+        nrm = nrm / np.linalg.norm(nrm)
+        S = np.array([0, 0, 12])
         
         # F. INVERSE KINEMATICS
-        ik_result = triangle_orientation_and_location(nrm, S, 0.5)
+        ik_result = triangle_orientation_and_location(nrm, S, 5)
         
         # G. EXTRACT SERVO ANGLES
         theta_11 = ik_result["theta_11"]  # degrees
@@ -162,9 +187,9 @@ while True:
         
         # H. CONVERT TO OFFSETS AND SEND
         neutral = 15.0
-        offset_11 = 90-(theta_11 - neutral)
-        offset_21 = 90-(theta_21 - neutral-10)
-        offset_31 = 90-(theta_31 - neutral+4)
+        offset_11 = (theta_11) - 70
+        offset_21 = (theta_21) - 70
+        offset_31 = (theta_31) - 70
 
         # Check for NaN or invalid values before sending
         if np.isnan(offset_11) or np.isnan(offset_21) or np.isnan(offset_31):

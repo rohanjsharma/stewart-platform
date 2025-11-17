@@ -29,11 +29,11 @@ class ServoBus:
         """Send angle command to servo motor (clipped for safety)."""
         if self.servo:
             servo_angle1 = self.neutral_angle + angle1
-            servo_angle1 = int(np.clip(servo_angle1, 0, 50))
-            servo_angle2 = self.neutral_angle + angle2 + 10
-            servo_angle2 = int(np.clip(servo_angle2, 0, 50))
-            servo_angle3 = self.neutral_angle + angle3 -4
-            servo_angle3 = int(np.clip(servo_angle3, 0, 50))
+            servo_angle1 = int(np.clip(servo_angle1, 0, 40))
+            servo_angle2 = self.neutral_angle + angle2+10.0
+            servo_angle2 = int(np.clip(servo_angle2, 0, 40))
+            servo_angle3 = self.neutral_angle + angle3 - 4.0
+            servo_angle3 = int(np.clip(servo_angle3, 0, 40))
             try:
                 self.servo.write(bytes([servo_angle1, servo_angle2, servo_angle3]))
             except Exception:

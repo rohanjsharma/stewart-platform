@@ -33,8 +33,21 @@ class CircleMapper:
         self._sin = 0.0
         self._sx = 1.0  # meters per pixel along ellipse major-aligned x
         self._sy = 1.0  # meters per pixel along ellipse major-aligned y
+        
+        # Fixed reference coordinate system (locked after first valid detection)
+        # Screen-aligned: X = right, Y = up (ignoring ellipse rotation)
+        self._reference_locked = False
+        self._ref_center_px = (0.0, 0.0)  # Fixed origin (u0, v0)
+        self._ref_sx = 1.0  # meters per pixel in X (horizontal) direction
+        self._ref_sy = 1.0  # meters per pixel in Y (vertical) direction
 
     # ---------- public API ----------
+    def get_reference_center(self) -> Optional[Tuple[float, float]]:
+        """Get the reference coordinate system center in pixels, or None if not locked yet."""
+        if self._reference_locked:
+            return self._ref_center_px
+        return None
+    
     def update_from_frame(self, frame_bgr: np.ndarray) -> Dict[str, Any]:
         
         self.frame_count += 1
@@ -56,16 +69,28 @@ class CircleMapper:
             return (0.0, 0.0)
 
         u, v = uv
-        u0, v0 = self.rim.center_px
-        # translate to ellipse center
-        du = u - u0
-        dv = v - v0
-        # rotate by -psi (align to ellipse axes)
-        x_al =  self._cos * du + self._sin * dv
-        y_al = -self._sin * du + self._cos * dv
-        # scale to meters using anisotropic scale
-        x_m = x_al * self._sx
-        y_m = y_al * self._sy
+        
+        # Use fixed screen-aligned coordinate system:
+        # X axis: points right (positive u direction)
+        # Y axis: points up (negative v direction, since v increases downward)
+        if self._reference_locked:
+            # Translate to fixed reference center
+            u0, v0 = self._ref_center_px
+            du = u - u0
+            dv = v - v0
+            # Screen-aligned: no rotation, just scale
+            # X = right (positive u), Y = up (negative v)
+            x_m = du * self._ref_sx
+            y_m = -dv * self._ref_sy  # Negative because v increases downward
+        else:
+            # Fallback: use current center and average scale
+            u0, v0 = self.rim.center_px
+            du = u - u0
+            dv = v - v0
+            # Use average scale for screen-aligned coordinates
+            avg_scale = (self._sx + self._sy) / 2.0
+            x_m = du * avg_scale
+            y_m = -dv * avg_scale
         return (x_m, y_m)
 
     def m_to_px(self, xy_m: Tuple[float, float]) -> Tuple[int, int]:
@@ -74,15 +99,26 @@ class CircleMapper:
             return (0, 0)
 
         x_m, y_m = xy_m
-        # inverse scale
-        x_al = x_m / (self._sx + 1e-12)
-        y_al = y_m / (self._sy + 1e-12)
-        # rotate by +psi and translate back
-        du =  self._cos * x_al - self._sin * y_al
-        dv =  self._sin * x_al + self._cos * y_al
-        u0, v0 = self.rim.center_px
-        u = int(round(u0 + du))
-        v = int(round(v0 + dv))
+        
+        # Use fixed screen-aligned coordinate system for inverse transformation
+        # X axis: points right (positive u direction)
+        # Y axis: points up (negative v direction)
+        if self._reference_locked:
+            # Inverse scale: convert meters to pixels
+            du = x_m / (self._ref_sx + 1e-12)
+            dv = -y_m / (self._ref_sy + 1e-12)  # Negative because v increases downward
+            # Translate using fixed reference center position
+            u0, v0 = self._ref_center_px
+            u = int(round(u0 + du))
+            v = int(round(v0 + dv))
+        else:
+            # Fallback: use current center and average scale
+            avg_scale = (self._sx + self._sy) / 2.0
+            du = x_m / (avg_scale + 1e-12)
+            dv = -y_m / (avg_scale + 1e-12)
+            u0, v0 = self.rim.center_px
+            u = int(round(u0 + du))
+            v = int(round(v0 + dv))
         return (u, v)
 
     def _fit_rim(self, frame_bgr) -> None:
@@ -137,11 +173,28 @@ class CircleMapper:
             self._sx, self._sy = 1.0, 1.0
             return
 
+        # Update current transforms
         self._cos = math.cos(self.rim.psi_rad)
         self._sin = math.sin(self.rim.psi_rad)
-
         self._sx = self.R / self.rim.a_px
         self._sy = self.R / self.rim.b_px
+        
+        # Lock reference coordinate system on first valid detection
+        # Screen-aligned: X = right, Y = up (ignoring ellipse rotation)
+        # This locks the origin (center) and scale factors
+        if not self._reference_locked:
+            self._ref_center_px = self.rim.center_px
+            # Use average of ellipse scales for screen-aligned coordinate system
+            # This gives consistent scaling in both directions
+            self._ref_sx = (self._sx + self._sy) / 2.0
+            self._ref_sy = (self._sx + self._sy) / 2.0
+            self._reference_locked = True
+            u0, v0 = self._ref_center_px
+            print(f"[CircleMapper] Reference coordinate system locked (screen-aligned):")
+            print(f"  Center: ({u0:.1f}, {v0:.1f}) pixels")
+            print(f"  X axis: points right (horizontal)")
+            print(f"  Y axis: points up (vertical)")
+            print(f"  Scale: {self._ref_sx:.6f} m/pixel (both axes)")
 
 
 if __name__ == "__main__":
